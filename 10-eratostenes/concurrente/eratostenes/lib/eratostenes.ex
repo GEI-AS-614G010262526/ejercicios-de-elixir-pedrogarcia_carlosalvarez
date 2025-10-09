@@ -12,20 +12,16 @@ defmodule Eratostenes do
       :world
 
   """
-  defp filto(p) do
-    receive do
-      [h|t] ->
+  def primos_hasta(n) when n < 2, do: []
 
-
-    end
+  def primos_hasta(n) do
+    cribar(2..n|>Enum.to_list(), [])
   end
 
-  defp filtro(p, g) do
-    receive do
-      [h|t] ->
-        send(g, [h|t]  |> Enum.reject(fn x -> rem(x, h) == 0 end))
+  defp cribar([], primos), do: Enum.reverse(primos)
 
-    end
+  defp cribar([h|t], primos) do
+    nuevos = Enum.reject(t, fn x -> rem(x, h) == 0 end)
+    cribar(nuevos, [h|primos])
   end
-
 end
