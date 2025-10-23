@@ -25,7 +25,6 @@ defmodule Eratostenesconc do
             send(siguiente, {:numero, n})
             filtrar(primo, siguiente)
           else
-            IO.puts("Primo encontrado: #{n}")
             nuevo_filtro = crear_filtro(n)
             filtrar(primo, nuevo_filtro)
           end
@@ -33,9 +32,12 @@ defmodule Eratostenesconc do
           filtrar(primo, siguiente)
         end
 
-      :fin ->
+        {:fin, id, list} ->
         if siguiente do
-          send(siguiente, :fin)
+          send(siguiente, {:fin, id, [primo|list]})
+        else
+          IO.puts("Send de enviar numeros")
+          send(id, {:lista, [primo|list]})
         end
 
         exit(:normal)
@@ -44,12 +46,16 @@ defmodule Eratostenesconc do
 
   def enviar_numeros(limite, pid) do
     Enum.each(2..limite, fn n ->
-      #IO.puts("Enviando número: #{n}")
       send(pid, {:numero, n}) end)
-    send(pid, :fin)
+    send(pid, {:fin, self(), []})
+    receive do
+      {:lista, lista} ->
+        IO.puts("Receive de enviar numeros")
+        Enum.reverse(lista)
+    end
   end
 
-  def ejecutar(limite) do
+  def primos(limite) do
     pid = crear_filtro(2)
     enviar_numeros(limite, pid)
   end
