@@ -34,21 +34,36 @@ defmodule Server do
     trabajar(workers)
   end
 
-  defp trabajar(workers) do
+    defp trabajar(workers) do
     receive do
       {:trabajos, from, jobs} ->
         if length(workers) < length(jobs) do
           send(from, {:resultados, {:error, :lote_demasiado_grande}})
           trabajar(workers)
         else
-          repartir_trabajo(workers, jobs)
-          resultados = recibir_resultados(length(jobs))
-          Enum.each(resultados, fn resultado -> IO.puts("#{resultado}") end)
-          send(from, {:resultados, resultados})
+          pid1 = spawn(fn -> cola(workers, from, jobs) end)
+          trabajar(workers, from, jobs, pid1)
         end
 
       :stop ->
         Enum.each(workers, fn pid -> send(pid, :stop) end)
+
+    end
+  end
+
+  defp trabajar(workers, pid) do
+    receive do
+      {:trabajos, from, jobs} ->
+        if length(workers) < length(jobs) do
+          send(from, {:resultados, {:error, :lote_demasiado_grande}})
+          trabajar(workers)
+        else
+          pid1 = spawn(fn -> cola(workers, from, jobs, pid) end)
+          trabajar(workers, from, jobs, pid1)
+        end
+
+      :stop ->
+        Enum.each(workers, fn pid1 -> send(pid1, :stop) end)
 
     end
   end
@@ -73,6 +88,31 @@ defmodule Server do
       end
   end
 
+  defp cola(workers, from, jobs) do
+    repartir_trabajo(workers, jobs)
+    resultados = recibir_resultados(length(jobs))
+    Enum.each(resultados, fn resultado -> IO.puts("#{resultado}") end)
+    send(from, {:resultados, resultados})
+    receive do
+      {:queue, pid1} ->
+        send(pid1, :clear_queue)
+    end
+
+  defp cola(workers, from, jobs, pid) do
+      send(pid, {:queue, self()})
+      receive do
+        :clear_queue ->
+          repartir_trabajo(workers, jobs)
+          resultados = recibir_resultados(length(jobs))
+          Enum.each(resultados, fn resultado -> IO.puts("#{resultado}") end)
+          send(from, {:resultados, resultados})
+          receive do
+          {:queue, pid1} ->
+            send(pid1, :clear_queue)
+          end
+      end
+    end
+  end
 
   defp repartir_trabajo([worker|rest_workers], [job|rest_jobs]) do
     send(worker, {:trabajo, self(), job})
