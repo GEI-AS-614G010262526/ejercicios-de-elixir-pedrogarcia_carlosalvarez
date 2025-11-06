@@ -89,25 +89,33 @@ defmodule Server do
   end
 
   defp cola(workers, from, jobs) do
+    #Ejecuta los trabajos
     repartir_trabajo(workers, jobs)
     resultados = recibir_resultados(length(jobs))
     Enum.each(resultados, fn resultado -> IO.puts("#{resultado}") end)
     send(from, {:resultados, resultados})
+    #Espera a que le lleguen mas batches
     receive do
       {:queue, pid1} ->
+        #Da el ok para ejecutar el siguiente batch
         send(pid1, :clear_queue)
     end
 
   defp cola(workers, from, jobs, pid) do
+    #Envia una request para empezar el siguiente batch
       send(pid, {:queue, self()})
+      #Recibe el ok para empezar el siguiente batch
       receive do
         :clear_queue ->
+          #Ejecuta los trabajos
           repartir_trabajo(workers, jobs)
           resultados = recibir_resultados(length(jobs))
           Enum.each(resultados, fn resultado -> IO.puts("#{resultado}") end)
           send(from, {:resultados, resultados})
+          #Espera a que le lleguen mas batches
           receive do
           {:queue, pid1} ->
+            #Da el ok para ejecutar el siguiente batch
             send(pid1, :clear_queue)
           end
       end
