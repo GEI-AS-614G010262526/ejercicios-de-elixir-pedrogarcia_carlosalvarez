@@ -2,13 +2,13 @@ defmodule Gestor do
 
   def start(recursos) do
     pid = spawn(fn -> init(recursos) end)
-    Process.register(pid, :gestor)
+    :global.register_name(:gestor, pid)
     :ok
   end
 
   def alloc() do
-    nodo_gestor = {:gestor, nodo_gestor()}
-    send(nodo_gestor, {:alloc, self()})
+    #nodo_gestor = {:gestor, nodo_gestor()}
+    send(:global.whereis_name(:gestor), {:alloc, self()})
     receive do
       {:ok, r} ->
         IO.puts("Recurso asignado")
@@ -19,8 +19,8 @@ defmodule Gestor do
   end
 
   def release(recurso) do
-    nodo_gestor = {:gestor, nodo_gestor()}
-    send(nodo_gestor, {:release, self(), recurso})
+    #nodo_gestor = {:gestor, nodo_gestor()}
+    send(:global.whereis_name(:gestor), {:release, self(), recurso})
     receive do
       :ok ->
         IO.puts("Recursos liberado")
@@ -31,8 +31,8 @@ defmodule Gestor do
   end
 
   def avail() do
-    nodo_gestor = {:gestor, nodo_gestor()}
-    send(nodo_gestor, {:avail, self()})
+    #nodo_gestor = {:gestor, nodo_gestor()}
+    send(:global.whereis_name(:gestor), {:avail, self()})
     receive do
       {:respuesta, l} ->
         IO.puts("#{l} recursos disponibles")
