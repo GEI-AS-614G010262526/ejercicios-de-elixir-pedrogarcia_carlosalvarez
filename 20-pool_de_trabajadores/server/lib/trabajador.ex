@@ -10,7 +10,6 @@ defmodule Trabajador do
     receive do
       {:trabajo, from, func} ->
         resultado = func.()
-        IO.puts(" #{resultado}")
         send(from, {:resultado, resultado})
         work(id)
 

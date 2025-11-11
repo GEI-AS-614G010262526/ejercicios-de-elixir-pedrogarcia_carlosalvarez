@@ -41,8 +41,8 @@ defmodule Server do
           send(from, {:resultados, {:error, :lote_demasiado_grande}})
           trabajar(workers)
         else
-          pid1 = spawn(fn -> cola(workers, from, jobs) end)
-          trabajar(workers, from, jobs, pid1)
+          pid = spawn(fn -> cola(workers, from, jobs) end)
+          trabajar(workers, pid)
         end
 
       :stop ->
@@ -59,7 +59,7 @@ defmodule Server do
           trabajar(workers)
         else
           pid1 = spawn(fn -> cola(workers, from, jobs, pid) end)
-          trabajar(workers, from, jobs, pid1)
+          trabajar(workers, pid1)
         end
 
       :stop ->
@@ -76,9 +76,7 @@ defmodule Server do
   end
 
   defp recibir_resultados(0, resultados) do
-    IO.puts("Ultimo receive")
-    Enum.each(resultados, fn resultado -> IO.puts("#{resultado}") end)
-    resultados
+    Enum.reverse(resultados)
   end
 
   defp recibir_resultados(n, resultados) do
@@ -92,7 +90,6 @@ defmodule Server do
     #Ejecuta los trabajos
     repartir_trabajo(workers, jobs)
     resultados = recibir_resultados(length(jobs))
-    Enum.each(resultados, fn resultado -> IO.puts("#{resultado}") end)
     send(from, {:resultados, resultados})
     #Espera a que le lleguen mas batches
     receive do
@@ -100,6 +97,7 @@ defmodule Server do
         #Da el ok para ejecutar el siguiente batch
         send(pid1, :clear_queue)
     end
+  end
 
   defp cola(workers, from, jobs, pid) do
     #Envia una request para empezar el siguiente batch
@@ -107,18 +105,16 @@ defmodule Server do
       #Recibe el ok para empezar el siguiente batch
       receive do
         :clear_queue ->
-          #Ejecuta los trabajos
-          repartir_trabajo(workers, jobs)
-          resultados = recibir_resultados(length(jobs))
-          Enum.each(resultados, fn resultado -> IO.puts("#{resultado}") end)
-          send(from, {:resultados, resultados})
-          #Espera a que le lleguen mas batches
-          receive do
-          {:queue, pid1} ->
-            #Da el ok para ejecutar el siguiente batch
-            send(pid1, :clear_queue)
-          end
-      end
+        #Ejecuta los trabajos
+        repartir_trabajo(workers, jobs)
+        resultados = recibir_resultados(length(jobs))
+        send(from, {:resultados, resultados})
+        #Espera a que le lleguen mas batches
+        receive do
+        {:queue, pid1} ->
+          #Da el ok para ejecutar el siguiente batch
+          send(pid1, :clear_queue)
+        end
     end
   end
 
@@ -127,7 +123,7 @@ defmodule Server do
     repartir_trabajo(rest_workers, rest_jobs)
   end
 
-  defp repartir_trabajo([worker|rest_workers], []) do
+  defp repartir_trabajo([_worker|_rest_workers], []) do
     :ok
   end
 
