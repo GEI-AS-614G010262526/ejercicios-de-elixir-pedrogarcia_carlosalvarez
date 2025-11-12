@@ -61,8 +61,7 @@ defmodule Server_Script do
          {:diana, %{name: "Diana", avatar: "https://example.com/diana.png"}}
        ]}
     ]
-
-    start_nodes(specs)
+    Enum.map(specs, fn {name, actors} -> {name, Server.start_link(actors)} end)
   end
 
   @doc """

@@ -26,7 +26,7 @@ defmodule Server do
   ## Client API
 
   @spec start_link(list()) :: {:ok, pid()}
-  def start_link(initial_actors \\ []) when is_list(initial_actors) do
+  def start_link(initial_actors \\ []) do
     GenServer.start_link(__MODULE__, initial_actors, name: __MODULE__)
   end
 
@@ -50,8 +50,7 @@ defmodule Server do
   @impl true
   def init(initial_actors) do
     # normalizamos la lista de actores a un mapa user_atom => %{profile: ..., inbox: [...]}
-    node_name = Node.self()
-
+    {node_name, extension} = parse_actor(to_string(Node.self()))
     actors =
       initial_actors
       |> Enum.reduce(%{}, fn
@@ -67,7 +66,7 @@ defmodule Server do
         _, acc ->
           acc
       end)
-    state = %{node: node_name, actors: actors}
+    state = %{node: node_name, extension: extension, actors: actors}
     {:ok, state}
   end
 
@@ -76,6 +75,7 @@ defmodule Server do
   @impl true
   def handle_call({:get_profile, requestor, actor}, _from, state) do
     {_req_user, req_server} = parse_actor(requestor)
+    IO.puts(state.node)
     if req_server == state.node do
       {target_user, target_server} = parse_actor(actor)
       if target_server == state.node do
@@ -85,7 +85,7 @@ defmodule Server do
         end
       else
         # federated: forward to remote server
-        remote = {__MODULE__, target_server}
+        remote = {__MODULE__, String.to_atom("#{target_server}@#{state.extension}")}
         # call remote server's federated API
         case GenServer.call(remote, {:federated_get_profile, state.node, target_user}, 5_000) do
           {:ok, profile} -> {:reply, {:ok, profile}, state}
@@ -188,7 +188,7 @@ defmodule Server do
   defp parse_actor({user, server}) when is_atom(user) and is_atom(server), do: {user, server}
   defp parse_actor({user, server}) when is_binary(user) and is_binary(server), do: {String.to_atom(user), String.to_atom(server)}
 
-  defp parse_actor(actor) when is_binary(actor) do
+  defp parse_actor(actor) do
     [user_s, server_s] = String.split(actor, "@")
     {String.to_atom(user_s), String.to_atom(server_s)}
   end
