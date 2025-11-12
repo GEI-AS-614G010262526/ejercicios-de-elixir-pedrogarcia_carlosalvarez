@@ -115,7 +115,7 @@ defmodule Server do
             {:reply, {:ok, :delivered}, %{state | actors: new_actors}}
         end
       else
-        remote = {__MODULE__, r_server}
+        remote = {__MODULE__, String.to_atom("#{r_server}@#{state.extension}")}
         case GenServer.call(remote, {:federated_post_message, state.node, r_user, %{from: build_id(s_user, s_server), body: message}}, 5_000) do
           {:ok, :delivered} -> {:reply, {:ok, :delivered}, state}
           {:error, _} = err -> {:reply, err, state}
@@ -192,4 +192,63 @@ defmodule Server do
     [user_s, server_s] = String.split(actor, "@")
     {String.to_atom(user_s), String.to_atom(server_s)}
   end
+
+def populate_test_data(n) do
+  node_name = Node.self()
+
+  # Lista de actores de ejemplo
+  actors_1 = [
+    {:spock, %{name: "S'chn T'gai Spock", avatar: "https://example.com/spock.png"}},
+    {:kirk, %{name: "James T. Kirk", avatar: "https://example.com/kirk.png"}},
+    {:scotty, %{name: "Montgomery Scott", avatar: "https://example.com/scotty.png"}},
+    {:uhura, %{name: "Nyota Uhura", avatar: "https://example.com/uhura.png"}},
+    {:sulu, %{name: "Hikaru Sulu", avatar: "https://example.com/sulu.png"}}
+  ]
+
+  actors_2 = [
+    {:janeway, %{name: "Kathryn Janeway", avatar: "https://example.com/janeway.png"}},
+    {:chakotay, %{name: "Chakotay", avatar: "https://example.com/chakotay.png"}},
+    {:tuvok, %{name: "Tuvok", avatar: "https://example.com/tuvok.png"}},
+    {:elanna, %{name: "Elanna Torres", avatar: "https://example.com/belanna.png"}},
+    {:tom, %{name: "Tom Paris", avatar: "https://example.com/tom.png"}}
+  ]
+
+  default_actors = [
+    {:rufus, %{name: "Rufus", avatar: "https://example.com/rufus.png"}},
+    {:tommy, %{name: "Tommy Connor", avatar: "https://example.com/tommy.png"}},
+    {:helena, %{name: "Helena Russel", avatar: "https://example.com/helena.png"}},
+    {:marcus, %{name: "Marcus Cole", avatar: "https://example.com/marcus.png"}},
+    {:kira2, %{name: "Kira Meray", avatar: "https://example.com/kira2.png"}}
+  ]
+
+  test_actors =
+    case n do
+      1 -> actors_1
+      2 -> actors_2
+      _ -> default_actors
+    end
+
+  # Creamos el mapa de actores con inbox vacío
+  actors =
+    test_actors
+    |> Enum.reduce(%{}, fn {user, %{name: name, avatar: avatar}}, acc ->
+      Map.put(acc, user, %{
+        profile: %{
+          id: build_id(user, node_name),
+          name: name,
+          avatar: avatar
+        },
+        inbox: []
+      })
+    end)
+
+  # Actualizamos el estado del GenServer
+  GenServer.cast(__MODULE__, {:set_actors, actors})
+end
+
+## Añadimos el handle_cast correspondiente
+@impl true
+def handle_cast({:set_actors, actors}, state) do
+  {:noreply, %{state | actors: actors}}
+end
 end
